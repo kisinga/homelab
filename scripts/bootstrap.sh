@@ -23,6 +23,12 @@ sudo find "$DEST_DIR" "$DATA_DIR" -type d -exec chmod 775 {} \;
 sudo chcon -Rt svirt_sandbox_file_t "$DEST_DIR" "$DATA_DIR"
 /usr/bin/sudo chcon -t svirt_sandbox_file_t /var/run/docker.sock
 
+echo "➜ Installing systemd gitpull unit + timer"
+sudo cp "$DEST_DIR/systemd/homelab-gitpull.service" /etc/systemd/system/
+sudo cp "$DEST_DIR/systemd/homelab-gitpull.timer" /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now homelab-gitpull.timer
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now "$SYSTEMD_UNIT"
 echo "✔ Bootstrap complete."
