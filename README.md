@@ -85,7 +85,7 @@ _External file—_:
 | `homelab-gitpull.timer`   | Triggers the above every 5 minutes    |
 | `.git/hooks/post-merge`   | Local fallback redeploy               |
 
-Unit files live in `systemd/` and are deployed via `scripts/bootstrap.sh`. They always run as user `groot`, with `docker` group permissions.
+Unit files live in `systemd/` and are deployed via `scripts/setup.sh`. They always run as user `groot`, with `docker` group permissions.
 
 ---
 

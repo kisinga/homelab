@@ -22,7 +22,7 @@ Tested on Fedora 42 with systemd, Docker 27, and Git.
 
 | Concern               | Handled By                           |
 | --------------------- | ------------------------------------ |
-| Safe first-run setup  | `scripts/bootstrap.sh`               |
+| Safe first-run setup  | `scripts/setup.sh`                   |
 | Continuous deployment | `homelab-gitpull.service` + `.timer` |
 | Manual safety net     | `.git/hooks/post-merge`              |
 | Secrets hygiene       | `.env` ignored by Git                |
@@ -35,7 +35,7 @@ Tested on Fedora 42 with systemd, Docker 27, and Git.
 
 ```bash
 chmod +x scripts/*.sh
-sudo bash scripts/bootstrap.sh
+sudo bash scripts/setup.sh
 ```
 
 Performs:
@@ -80,7 +80,7 @@ docker compose -f stacks/core.yml up -d
 
 | File                              | Purpose                         |
 | --------------------------------- | ------------------------------- |
-| `scripts/bootstrap.sh`            | Setup logic                     |
+| `scripts/setup.sh`                | Setup logic                     |
 | `scripts/deploy.sh`               | Manual redeploy helper          |
 | `systemd/homelab-core.service`    | Runs stack at boot              |
 | `systemd/homelab-gitpull.service` | Pull + deploy                   |
