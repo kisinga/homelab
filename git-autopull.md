@@ -1,62 +1,74 @@
 # Homelab Git Autopull & Bootstrap
 
-_Companion to [**Baseline Stack & Architecture**](./baseline_stack_architecture_v3.md)_
-_Data volumes now live in `/srv/homelab-data` outside the repo._
+_Companion to [**Baseline Stack & Architecture**](./README.md)_
+_Enables hands-free updates of the core stack and services via Git + systemd._
 
-This document defines how the ThinkCentre pulls configuration from Git, deploys services, and stays in sync — **without manual SSH**. It includes bootstrapping, periodic updates, safety nets, and real-world caveats.
+---
+
+## 0 · Purpose
+
+This document defines how a homelab system:
+
+- Boots from a Git repo
+- Pulls latest changes every 5 minutes
+- Applies them using Docker Compose
+- Does not overwrite local secrets (`.env` is preserved)
+
+Tested on Fedora 42 with systemd, Docker 27, and Git.
 
 ---
 
 ## 1 · Responsibilities
 
-| Concern                  | Handled By                                   |
-| ------------------------ | -------------------------------------------- |
-| Safe first-run bootstrap | `scripts/bootstrap.sh`                       |
-| Continuous deployment    | `systemd/homelab-gitpull.service` + `.timer` |
-| Manual safety net        | `.git/hooks/post-merge`                      |
-| Secrets hygiene          | Never overwrite `.env`, use `.env.example`   |
+| Concern               | Handled By                           |
+| --------------------- | ------------------------------------ |
+| Safe first-run setup  | `scripts/bootstrap.sh`               |
+| Continuous deployment | `homelab-gitpull.service` + `.timer` |
+| Manual safety net     | `.git/hooks/post-merge`              |
+| Secrets hygiene       | `.env` ignored by Git                |
 
 ---
 
 ## 2 · Workflow Overview
 
-### ✅ 1. **Bootstrap (initial clone)**
-
-Clone the Git repository to `/srv/homelab` and set up the environment
+### ✅ 1. **Bootstrap (one-time setup)**
 
 ```bash
 chmod +x scripts/*.sh
-```
-
-This is **mandatory**. If skipped, systemd and manual executions will fail with `Permission denied`.  
-Then execute the bootstrap script:
-
-```bash
 sudo bash scripts/bootstrap.sh
 ```
 
-This performs:
+Performs:
 
-- Git clone (or pull) to `/srv/homelab`
-- Sets folder permissions and SELinux labels
-- Installs & enables `homelab-core.service`
-- (If enabled in the script) copies systemd unit files to `/etc/systemd/system`
-- Marks all `*.sh` scripts as executable with `chmod +x`
+- Git clone or fast-forward pull
+- SELinux relabeling for `/srv/homelab*`
+- Copies systemd units to `/etc/systemd/system`
+- Enables `homelab-core` and `homelab-gitpull.timer`
+- Ensures proper file ownership and permissions
 
-### ✅ 2. **Autopull Every 5 Minutes**
+### ✅ 2. **Auto Git Pull (every 5 minutes)**
 
-Enabled via `homelab-gitpull.timer`, this calls `homelab-gitpull.service`:
+Triggered by:
 
 ```ini
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+```
+
+The paired service unit:
+
+```ini
+[Service]
+User=groot
+WorkingDirectory=/srv/homelab
 ExecStart=/usr/bin/git pull --ff-only origin main
 ExecStartPost=/usr/bin/docker compose -f stacks/core.yml up -d --pull always
 ```
 
-This ensures any update pushed to Git is pulled + deployed automatically.
+### ✅ 3. **Manual Pull (CLI fallback)**
 
-### ✅ 3. **Manual Git Pull (Safety Net)**
-
-Any manual `git pull` triggers `.git/hooks/post-merge`:
+Hooked via `.git/hooks/post-merge`:
 
 ```bash
 docker compose -f stacks/core.yml up -d
@@ -64,73 +76,73 @@ docker compose -f stacks/core.yml up -d
 
 ---
 
-## 3 · Required Files (Inventory)
+## 3 · Required Files
 
-| File                              | Purpose                           |
-| --------------------------------- | --------------------------------- |
-| `scripts/bootstrap.sh`            | One-shot setup script (see below) |
-| `systemd/homelab-gitpull.service` | Pull & redeploy                   |
-| `systemd/homelab-gitpull.timer`   | 5-min polling trigger             |
-| `.git/hooks/post-merge`           | Manual hot-reload on pull         |
-
----
-
-## 4 · Common Pitfalls & Remedies
-
-| Symptom                                 | Likely Cause                                    | Fix                                                       |
-| --------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
-| `git@github.com: Permission denied`     | SSH key not loaded / agent issue                | Ensure `groot` or active user can `ssh -T git@github.com` |
-| `Could not read from remote repository` | Wrong user or systemd running as root           | Use `User=groot` in systemd service                       |
-| `.git/FETCH_HEAD: Permission denied`    | Git repo owned by different user                | Run `sudo chown -R groot:docker /srv/homelab`             |
-| `systemctl cat` doesn't reflect changes | Edited wrong path (e.g. repo instead of `/etc`) | Copy unit to `/etc/systemd/system` + `daemon-reload`      |
-| Scripts not executable                  | `chmod +x` not run after cloning                | Run `chmod +x scripts/*.sh`                               |
-| Service runs manually but not on timer  | Timer not enabled                               | `sudo systemctl enable --now homelab-gitpull.timer`       |
+| File                              | Purpose                         |
+| --------------------------------- | ------------------------------- |
+| `scripts/bootstrap.sh`            | Setup logic                     |
+| `scripts/deploy.sh`               | Manual redeploy helper          |
+| `systemd/homelab-core.service`    | Runs stack at boot              |
+| `systemd/homelab-gitpull.service` | Pull + deploy                   |
+| `systemd/homelab-gitpull.timer`   | 5-min polling trigger           |
+| `.git/hooks/post-merge`           | Pull trigger on manual Git pull |
 
 ---
 
-## 5 · What We Learned (Lessons from Setup)
+## 4 · Pitfalls & Fixes
 
-- ✅ **Don't edit systemd units inside the repo** unless you're syncing them manually
-- ✅ **Always check which unit systemd sees** via `systemctl cat`
-- ✅ **Use `User=` in the service unit** to run as `groot`, not `root`
-- ✅ **Explicit `chmod +x` is non-negotiable** for shell scripts under version control
-- ✅ **Timers won't work unless explicitly enabled**
-- ✅ Use `--remove-orphans` in `docker compose` to clean up legacy containers
-
----
-
-## 6 · Next Steps
-
-- [ ] Add bootstrap logic to deploy systemd units automatically
-- [ ] Add recovery script that re-pulls config, resets permissions, and restarts stack
-- [ ] Wire Shoutrrr or similar for failure alerts
-- [ ] Document safe `.env` creation from `.env.example`
+| Symptom                    | Diagnostic                              | Resolution                                          |
+| -------------------------- | --------------------------------------- | --------------------------------------------------- |
+| `.sh` won't execute        | `permission denied`                     | `chmod +x scripts/*.sh`                             |
+| Git error in service       | `journalctl -u homelab-gitpull.service` | Check if user has Git SSH access                    |
+| Timer doesn't run          | `systemctl list-timers`                 | `sudo systemctl enable --now homelab-gitpull.timer` |
+| Wrong systemd unit applies | `systemctl cat <unit>`                  | Re-copy to `/etc/systemd/system` + `daemon-reload`  |
+| Repo owned by wrong user   | `ls -l /srv/homelab`                    | `sudo chown -R groot:docker /srv/homelab`           |
 
 ---
 
-## 7 · Reference: Bootstrap Script Actions
+## 5 · Security Hygiene
 
-`scripts/bootstrap.sh` performs:
+- `.env` is **never versioned**
+- `.env.example` is tracked for reference
+- Permissions on `/srv` are `775` with SELinux context `svirt_sandbox_file_t`
+- SSH deploy key must be loaded for `groot` to pull
+
+---
+
+## 6 · Recovery
+
+If the stack breaks:
 
 ```bash
-# Clone or pull Git repo
-# Set ownership + permissions
-# Label with SELinux context
-# Enable homelab-core.service
-# (Optionally) copy systemd units
-# Mark scripts executable
+cd /srv/homelab
+git pull
+bash scripts/deploy.sh
 ```
 
-Make sure `REPO_URL`, `DEST_DIR`, and `SYSTEMD_UNIT` are defined at the top of the script.
+Or just restart the services:
+
+```bash
+sudo systemctl restart homelab-gitpull.service
+```
 
 ---
 
-### End-State Goal
+## 7 · Future Work
 
-A low-maintenance, self-updating node where:
-
-- You **push once**
-- It **pulls & applies**
-- You **never SSH in** unless recovering from disaster
+- [ ] Add health check before/after pull
+- [ ] Retry failed deployments
+- [ ] Add Slack/Matrix alerting on failure
+- [ ] Git webhook support (alt to polling)
 
 ---
+
+## 8 · Summary
+
+This flow enables GitOps for your homelab — your system:
+
+- Clones itself once
+- Reconciles to Git every 5 min
+- Only changes if the repo changes
+
+_Maintain the repo → the system follows._

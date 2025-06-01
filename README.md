@@ -1,17 +1,24 @@
-# ThinkCentre M900 Homelab — **Baseline Stack & Architecture (v3)**
+# ThinkCentre M900 Homelab — **Baseline Stack & Architecture**
 
-_Companion to **Git Autopull & Bootstrap (v3)**_
+\*Companion to **Git Autopull & Bootstrap\***
 
----
-
-## 0 · Prime Directive
-
-Run **any** OCI workload, patch it automatically, and surface it only when expressly allowed—VPN‑first via **Tailscale Serve**, public via **Cloudflare Tunnel** _(DNS TBD)_.  
-**One YAML diff → reconciled runtime.**
+> ✅ This setup is designed to run on **any modern Linux system** with Docker and systemd — but is tested and tailored on a **Lenovo ThinkCentre M900 (Fedora 42)** for real-world reliability.
 
 ---
 
-## 1 · Assumptions
+## 🧭 Prime Directive
+
+Run **any** OCI workload, keep it up-to-date, and expose only with intent:
+
+- Internal-only by default
+- VPN-first via **Tailscale Serve**
+- Public via **Cloudflare Tunnel** _(DNS automation pending)_
+
+> _One YAML diff → reconciled runtime._
+
+---
+
+## ⚙️ Assumptions
 
 | Axis                                  | Assumption                                          | Rationale                                       |
 | ------------------------------------- | --------------------------------------------------- | ----------------------------------------------- |
@@ -22,7 +29,7 @@ Run **any** OCI workload, patch it automatically, and surface it only when expre
 
 ---
 
-## 2 · Hardware & OS
+## 🖥️ Hardware & OS (Test Host)
 
 | Component   | Detail                                                     |
 | ----------- | ---------------------------------------------------------- |
@@ -32,71 +39,71 @@ Run **any** OCI workload, patch it automatically, and surface it only when expre
 
 ---
 
-## 3 · Directory Layout
+## 🗂 Directory Layout
 
-```text
+```bash
 #  Code & compose files
 /srv/homelab
 ├─ stacks/
 │  └─ core.yml
 ├─ scripts/
-└─ logs/
+├─ systemd/
+└─ .env
 
-#  Persistent volumes (outside Git)
+# Persistent volumes (outside Git)
 /srv/homelab-data
 └─ dukahub/
 ```
 
-_Ownership_: `groot:docker`, `0775` on both roots.  
-_SELinux_: `chcon -Rt svirt_sandbox_file_t /srv/homelab /srv/homelab-data`.
+_Ownership_: `groot:docker`, `0775` on both roots.
+_SELinux_: `chcon -Rt svirt_sandbox_file_t /srv/homelab /srv/homelab-data`
 
 ---
 
-## 4 · Core Stack (`stacks/core.yml`)
+## 📦 Core Stack (`stacks/core.yml`)
 
-_External file—changes to note_:
+_External file—_:
 
-```yaml
-services:
-  dukahub:
-    volumes:
-      - /srv/homelab-data/dukahub:/pb_data
-```
-
-Every service mounts sub‑dirs beneath `/srv/homelab-data`, **never** the repo path.
+> All services mount subdirs under `/srv/homelab-data`, **never inside the repo**.
 
 ---
 
-## 5 · Systemd Units
+## 🛠 Systemd Units
 
-- `homelab-core.service` → starts stack, untouched by Git logic.
-- Unit files live in `systemd/`.
+| Unit                      | Purpose                               |
+| ------------------------- | ------------------------------------- |
+| `homelab-core.service`    | Starts core stack (no Git dependency) |
+| `homelab-gitpull.service` | Pulls latest repo and redeploys stack |
+| `homelab-gitpull.timer`   | Triggers the above every 5 minutes    |
+| `.git/hooks/post-merge`   | Local fallback redeploy               |
+
+Unit files live in `systemd/` and are deployed via `scripts/bootstrap.sh`. They always run as user `groot`, with `docker` group permissions.
 
 ---
 
-## 6 · Networking Recipes
+## 🌐 Networking Recipes
 
 | Scenario      | Command                                                 |
 | ------------- | ------------------------------------------------------- |
-| Tailnet HTTPS | `sudo tailscale serve --bg https:// localhost:8080`     |
+| Tailnet HTTPS | `sudo tailscale serve --bg https://localhost:8080`      |
 | Public tunnel | `cloudflared tunnel run homelab` _(automation pending)_ |
 
-Always hit **port 443** inside Tailnet.
+Always access internal services over port **443** in Tailnet.
 
 ---
 
-## 7 · Monitoring & Self‑Healing
+## 🔍 Monitoring & Self-Healing
 
-| Need            | Tool                 | Status | Note                         |
-| --------------- | -------------------- | ------ | ---------------------------- |
-| Image freshness | **Watchtower**       | ✅     | Label `/var/run/docker.sock` |
-| Stack restarts  | **systemd**          | ✅     | `RestartForceExitStatus=1`   |
-| Metrics         | Prometheus + Grafana | ⏳     | future `monitoring.yml`      |
-| Alerting        | Shoutrrr             | ⏳     | `SHOUTRRR_URL` in `.env`     |
+| Concern         | Tool           | Status | Note                     |
+| --------------- | -------------- | ------ | ------------------------ |
+| Image freshness | **Watchtower** | ✅     | `WATCHTOWER_*` in `.env` |
+| Stack restarts  | **systemd**    | ✅     | `RemainAfterExit=yes`    |
+| Metrics         | Prometheus     | ⏳     | Future drop-in           |
+| Alerting        | Shoutrrr       | ⏳     | `SHOUTRRR_URL` in `.env` |
 
 ---
 
-## 8 · Troubleshooting
+## 🧪 Troubleshooting
 
 | Symptom                        | Diagnostic                              | Resolution                        |
 | ------------------------------ | --------------------------------------- | --------------------------------- |
@@ -107,20 +114,37 @@ Always hit **port 443** inside Tailnet.
 
 ---
 
-## 9 · QoL Helpers
+## 🧰 QoL Helpers
 
 - `scripts/mkservice.sh` → scaffolds service + matching `/srv/homelab-data/<svc>`
 - `scripts/labels-fix.sh` → relabels both trees
 
 ---
 
-## 10 · Roadmap
+## 🚧 Roadmap
 
-- [ ] SELinux boolean vs relabel for Watchtower
-- [ ] `monitoring.yml` drop‑in
-- [ ] Cloudflare tunnel unit
-- [ ] Matrix alerts on failed units
+- [ ] Enable Watchtower with private registry (GHCR)
+- [ ] Add `.labels` file to auto-run `tailscale serve`
+- [ ] Add `monitoring.yml` stack with Prometheus + Grafana
+- [ ] Add Matrix or Shoutrrr alerts on failed units
 
 ---
 
-**End‑state:** self‑patching node, zero open ports, bare‑metal recoverable in < 10 min with **two** docs + repo.
+## 🧵 End-State
+
+A self-healing, self-updating homelab with:
+
+- No open ports
+- Config-as-code via Git
+- Data-separated from deployment
+- Bare-metal recovery in **<10 min**
+
+With just:
+
+- This doc
+- Your Git repo
+- The Autopull & Bootstrap guide
+
+You're fully back online.
+
+---
