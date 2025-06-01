@@ -39,6 +39,14 @@ Run **any** OCI workload, keep it up-to-date, and expose only with intent:
 
 ---
 
+## Easy Start
+
+Run this on your homelab host:
+
+```bash
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/kisinga/homelab/main/scripts/setup.sh)"
+```
+
 ## 🗂 Directory Layout
 
 ```bash
