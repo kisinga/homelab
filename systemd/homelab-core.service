@@ -6,9 +6,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/srv/homelab
-ExecStart=/usr/bin/docker compose -f stacks/core.yml up -d
-ExecStop=/usr/bin/docker compose -f stacks/core.yml down
+ExecStart=/usr/bin/docker compose --env-file .env -f stacks/core.yml up -d
+ExecStop=/usr/bin/docker compose --env-file .env -f stacks/core.yml down
 RemainAfterExit=yes
+StandardOutput=journal
 
 [Install]
 WantedBy=multi-user.target

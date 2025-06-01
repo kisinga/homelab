@@ -7,4 +7,4 @@ for path in /srv/homelab /srv/homelab-data; do
 done
 
 sudo chcon -t svirt_sandbox_file_t /var/run/docker.sock
-echo "✓ SELinux labels re-applied to homelab trees & docker.sock"
+echo "✓ SELinux labels fixed"

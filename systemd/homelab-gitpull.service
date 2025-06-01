@@ -1,5 +1,5 @@
 [Unit]
-Description=Update Homelab Stack from Git
+Description=Update homelab from git and redeploy
 Wants=network-online.target
 After=network-online.target
 
@@ -8,5 +8,5 @@ User=groot
 Group=docker
 Type=oneshot
 WorkingDirectory=/srv/homelab
-ExecStart=/usr/bin/git pull --ff-only origin main
-ExecStartPost=/usr/bin/docker compose -f stacks/core.yml up -d --pull always
+ExecStart=/srv/homelab/scripts/deploy.sh
+StandardOutput=journal

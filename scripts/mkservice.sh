@@ -1,33 +1,29 @@
 #!/usr/bin/env bash
-# mkservice.sh — scaffold a new Compose service + data dir
+# Scaffold new container file + data dir
 set -euo pipefail
-
-usage() { echo "Usage: $0 <service-name> [image[:tag]]" >&2; exit 1; }
+usage(){ echo "Usage: $0 <service-name> [image[:tag]]" >&2; exit 1; }
 [[ $# -lt 1 ]] && usage
 
-SERVICE="$1";              shift
-IMAGE="${1:-nginx:latest}" # sane default
-DATA_ROOT="/srv/homelab-data"
-STACK_FILE="/srv/homelab/stacks/core.yml"
+SERVICE="$1"; shift
+IMAGE="${1:-nginx:latest}"
 
-sudo mkdir -p "$DATA_ROOT/$SERVICE"
-sudo chown -R groot:docker "$DATA_ROOT/$SERVICE"
-sudo chcon -Rt svirt_sandbox_file_t "$DATA_ROOT/$SERVICE"
+DATA_DIR="/srv/homelab-data/$SERVICE"
+YAML="/srv/containers/${SERVICE}.yml"
 
-cat <<EOF
+sudo mkdir -p "$DATA_DIR"
+sudo chown -R groot:docker "$DATA_DIR"
+sudo chcon -Rt svirt_sandbox_file_t "$DATA_DIR"
 
-# ---- YAML snippet (append to $STACK_FILE) ----
+cat > "$YAML" <<EOF
+services:
   $SERVICE:
     image: $IMAGE
     container_name: $SERVICE
     restart: unless-stopped
     volumes:
-      - $DATA_ROOT/$SERVICE:/data
+      - $DATA_DIR:/data
     labels:
       - com.centurylinklabs.watchtower.enable=true
-# ---- end snippet ----
-
 EOF
 
-echo "✓ Data dir ready at $DATA_ROOT/$SERVICE (SELinux labelled)."
-echo "→ Append the snippet above to $STACK_FILE and commit."
+echo "✓ Created $YAML and data dir."
