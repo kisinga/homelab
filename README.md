@@ -130,7 +130,6 @@ Always access internal services over port **443** in Tailnet.
 
 ## 🚧 Roadmap
 
-- [ ] Enable Watchtower with private registry (GHCR)
 - [ ] Add `.labels` file to auto-run `tailscale serve`
 - [ ] Add `monitoring.yml` stack with Prometheus + Grafana
 - [ ] Add Matrix or Shoutrrr alerts on failed units
