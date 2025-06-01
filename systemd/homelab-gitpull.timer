@@ -1,0 +1,10 @@
+[Unit]
+Description=Run git pull every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=homelab-gitpull.service
+
+[Install]
+WantedBy=timers.target

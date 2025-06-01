@@ -1,0 +1,14 @@
+[Unit]
+Description=Homelab Core Stack
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/homelab
+ExecStart=/usr/bin/docker compose -f stacks/core.yml up -d
+ExecStop=/usr/bin/docker compose -f stacks/core.yml down
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Update Homelab Stack from Git
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/homelab
+ExecStart=/usr/bin/git pull --ff-only origin main
+ExecStartPost=/usr/bin/docker compose -f stacks/core.yml up -d --pull always

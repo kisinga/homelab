@@ -1,0 +1,22 @@
+services:
+  dukahub:
+    image: ghcr.io/kisinga/dukahub:latest
+    container_name: dukahub
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - /srv/homelab-data/dukahub:/pb_data
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - TZ=Africa/Nairobi
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
