@@ -4,6 +4,8 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
+User=groot
+Group=docker
 Type=oneshot
 WorkingDirectory=/srv/homelab
 ExecStart=/usr/bin/git pull --ff-only origin main
