@@ -34,7 +34,7 @@ Run **any** OCI workload, keep it up-to-date, and expose only with intent:
 | Component   | Detail                                                     |
 | ----------- | ---------------------------------------------------------- |
 | **Host**    | Lenovo ThinkCentre M900 — i5‑6500 · 32 GB RAM · 1 TB SSD   |
-| **OS**      | Fedora 42 (**SELinux enforcing**)                          |
+| **OS**      | Fedora 42 (**SELinux enforcing**)                          |
 | **Network** | 1 Gb fibre → router → **Tailscale** mesh (zero open ports) |
 
 ---
@@ -47,20 +47,23 @@ Run this on your homelab host:
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/kisinga/homelab/main/scripts/setup.sh)"
 ```
 
+---
+
 ## 🗂 Directory Layout
 
 ```bash
 #  Code & compose files
 /srv/homelab
 ├─ stacks/
-│  └─ core.yml
+│  ├─ core.yml
+│  └─ NETDATA_README.md  # Details for Netdata monitoring
 ├─ scripts/
 ├─ systemd/
 └─ .env
 
 # Persistent volumes (outside Git)
 /srv/homelab-data
-└─ dukahub/
+└─ dukahub/ # Example service data
 ```
 
 _Ownership_: `groot:docker`, `0775` on both roots.
@@ -73,6 +76,7 @@ _SELinux_: `chcon -Rt svirt_sandbox_file_t /srv/homelab /srv/homelab-data`
 _External file—_:
 
 > All services mount subdirs under `/srv/homelab-data`, **never inside the repo**.
+> Monitoring services like Netdata use Docker named volumes for their own data.
 
 ---
 
@@ -89,36 +93,39 @@ Unit files live in `systemd/` and are deployed via `scripts/setup.sh`. They alwa
 
 ---
 
-## 🌐 Networking Recipes
+## 🌐 Networking Recipes & Service Access
 
-| Scenario      | Command                                                 |
-| ------------- | ------------------------------------------------------- |
-| Tailnet HTTPS | `sudo tailscale serve --bg https://localhost:8080`      |
-| Public tunnel | `cloudflared tunnel run homelab` _(automation pending)_ |
+| Scenario       | Command                                                 | Access Example (via Tailscale)            |
+| -------------- | ------------------------------------------------------- | ----------------------------------------- |
+| Tailnet HTTPS  | `sudo tailscale serve --bg https://localhost:8080`      | `https://your-tailscale-device-name:443`  |
+| Public tunnel  | `cloudflared tunnel run homelab` _(automation pending)_ | `https://your-public-domain.com`          |
+| **Netdata UI** | (Handled by Docker port mapping)                        | `http://your-tailscale-device-name:19999` |
 
-Always access internal services over port **443** in Tailnet.
+Always access internal services over port **443** in Tailnet for services exposed via `tailscale serve`. Other services like Netdata are accessed directly via their mapped port over the Tailscale network.
 
 ---
 
 ## 🔍 Monitoring & Self-Healing
 
-| Concern         | Tool           | Status | Note                     |
-| --------------- | -------------- | ------ | ------------------------ |
-| Image freshness | **Watchtower** | ✅     | `WATCHTOWER_*` in `.env` |
-| Stack restarts  | **systemd**    | ✅     | `RemainAfterExit=yes`    |
-| Metrics         | Prometheus     | ⏳     | Future drop-in           |
-| Alerting        | Shoutrrr       | ⏳     | `SHOUTRRR_URL` in `.env` |
+| Concern                  | Tool           | Status | Note                                                                               |
+| ------------------------ | -------------- | ------ | ---------------------------------------------------------------------------------- |
+| Image freshness          | **Watchtower** | ✅     | `WATCHTOWER_*` in `.env`, uses `socket-proxy`                                      |
+| Stack restarts           | **systemd**    | ✅     | `RemainAfterExit=yes`                                                              |
+| Host & Container Metrics | **Netdata**    | ✅     | Access: `http://<host-ip-or-tailscale-name>:19999`. See `stacks/NETDATA_README.md` |
+| Application Metrics      | Prometheus     | ⏳     | Future drop-in (`monitoring.yml`)                                                  |
+| Alerting                 | Shoutrrr       | ⏳     | `SHOUTRRR_URL` in `.env`                                                           |
 
 ---
 
 ## 🧪 Troubleshooting
 
-| Symptom                        | Diagnostic                              | Resolution                        |
-| ------------------------------ | --------------------------------------- | --------------------------------- |
-| Container cannot write         | `docker logs <id>`                      | Relabel `/srv/homelab-data/<svc>` |
-| Watchtower “permission denied” | `docker logs watchtower`                | Relabel `docker.sock`             |
-| HTTPS fails                    | `curl 127.0.0.1:8080` OK?               | Use `tailscale serve` port 443    |
-| Git pull broke stack           | `journalctl -u homelab-gitpull.service` | Roll back commit; volumes safe    |
+| Symptom                        | Diagnostic                              | Resolution                           |
+| ------------------------------ | --------------------------------------- | ------------------------------------ |
+| Container cannot write         | `docker logs <id>`                      | Relabel `/srv/homelab-data/<svc>`    |
+| Watchtower “permission denied” | `docker logs watchtower`                | Check `socket-proxy` logs & config   |
+| Netdata permission issues      | `docker logs netdata`                   | Check `socket-proxy` & volume mounts |
+| HTTPS fails                    | `curl 127.0.0.1:8080` OK?               | Use `tailscale serve` port 443       |
+| Git pull broke stack           | `journalctl -u homelab-gitpull.service` | Roll back commit; volumes safe       |
 
 ---
 
@@ -130,8 +137,9 @@ Always access internal services over port **443** in Tailnet.
 
 ## 🚧 Roadmap
 
+- [ ] Enable Watchtower with private registry (GHCR)
 - [ ] Add `.labels` file to auto-run `tailscale serve`
-- [ ] Add `monitoring.yml` stack with Prometheus + Grafana
+- [ ] Add `monitoring.yml` stack with Prometheus + Grafana (Netdata in `core.yml` provides initial metrics)
 - [ ] Add Matrix or Shoutrrr alerts on failed units
 
 ---

@@ -7,29 +7,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:z # Mount the actual Docker socket
     environment:
-      # Configuration: Only allow specific API calls needed by Watchtower
-      # These are examples; you might need to adjust based on Watchtower's exact needs.
-      # Start with a minimal set and add if Watchtower logs errors.
+      # Configuration: Only allow specific API calls needed by Watchtower & Netdata
+      # These are examples; you might need to adjust based on exact needs.
+      # Start with a minimal set and add if services log errors.
       - LOG_LEVEL=info
-      # Watchtower needs to list containers, inspect them, get versions, and sometimes events.
-      # It might also need to get container logs if you use that feature for notifications.
       # Deny all by default, then allow specific GET requests:
       - POST=0 # Deny all POST requests (like creating containers, exec, etc.)
       - PUT=0
       - DELETE=0
-      # Allow specific GET requests Watchtower likely needs:
+      # Allow specific GET requests Watchtower & Netdata likely needs:
       - CONTAINERS=1 # Allow /containers/* (inspect, list, logs)
-      - SERVICES=0 # Watchtower usually doesn't manage services directly
-      - TASKS=0 # Watchtower usually doesn't manage tasks directly
-      - NODES=0 # Watchtower usually doesn't manage nodes directly
-      - NETWORKS=0 # Watchtower usually doesn't manage networks directly
-      - VOLUMES=0 # Watchtower usually doesn't manage volumes directly
-      - IMAGES=1 # Allow /images/* (needed to check image updates)
-      - INFO=1 # Allow /info
-      - VERSION=1 # Allow /version
-      - EVENTS=1 # Allow /events (for real-time updates)
+      - SERVICES=0
+      - TASKS=0
+      - NODES=0
+      - NETWORKS=0 # Netdata might need this for some network views, can enable if needed.
+      - VOLUMES=0
+      - IMAGES=1 # Allow /images/* (Watchtower needs this)
+      - INFO=1 # Allow /info (Watchtower & Netdata)
+      - VERSION=1 # Allow /version (Watchtower & Netdata)
+      - EVENTS=1 # Allow /events (for real-time updates for Watchtower & Netdata)
       - PING=1 # Allow /_ping
-    # Expose the proxy on a local port. Watchtower will connect to this.
+    # Expose the proxy on a local port. Watchtower & Netdata will connect to this.
     # Do NOT expose this port to the wider network.
     ports:
       - "127.0.0.1:2375:2375" # Listen only on localhost
@@ -38,7 +36,7 @@ services:
     image: containrrr/watchtower:latest
     container_name: watchtower
     restart: unless-stopped
-    depends_on: # Ensure socket-proxy starts before Watchtower
+    depends_on:
       - socket-proxy
     env_file:
       - ../.env
@@ -46,8 +44,49 @@ services:
       - WATCHTOWER_CLEANUP=true
       # Tell Watchtower to use the socket-proxy
       - DOCKER_HOST=tcp://socket-proxy:2375 # Use the service name 'socket-proxy' and its internal port
-    # NO direct Docker socket mount here anymore!
-    # volumes:
-    #   - /var/run/docker.sock:/var/run/docker.sock:z # REMOVE THIS LINE
     labels:
       - com.centurylinklabs.watchtower.enable=true
+
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    restart: unless-stopped
+    depends_on:
+      - socket-proxy # Ensure socket-proxy is available for Docker metrics
+    ports:
+      - "19999:19999" # Default Netdata port
+    volumes:
+      # Host system monitoring (read-only, with SELinux context where appropriate)
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/passwd:/host/etc/passwd:ro,z
+      - /etc/group:/host/etc/group:ro,z
+      - /etc/os-release:/host/etc/os-release:ro,z
+      # Netdata persistent configuration and data (using Docker named volumes)
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+    cap_add:
+      - SYS_PTRACE # Required for process monitoring
+      - NET_ADMIN # Potentially for some network metrics, eBPF; can be omitted if not strictly needed
+    security_opt:
+      - apparmor:unconfined # Recommended by Netdata if AppArmor is active
+    environment:
+      # Tell Netdata to use the socket-proxy for Docker container metrics
+      - DOCKER_HOST=tcp://socket-proxy:2375
+      # Optional: Set a hostname for Netdata dashboard if desired
+      # - NETDATA_HOSTNAME=homelab-core
+    # Healthcheck for the Netdata container
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# Define persistent volumes for Netdata
+volumes:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
