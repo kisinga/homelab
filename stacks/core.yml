@@ -5,7 +5,7 @@ services:
     container_name: socket-proxy
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:z # Mount the actual Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock:z # Mount the actual Docker socket, :z is okay here for the socket
     environment:
       # Configuration: Only allow specific API calls needed by Watchtower & Netdata
       # These are examples; you might need to adjust based on exact needs.
@@ -56,12 +56,13 @@ services:
     ports:
       - "19999:19999" # Default Netdata port
     volumes:
-      # Host system monitoring (read-only, with SELinux context where appropriate)
+      # Host system monitoring (read-only)
+      # REMOVED :z from /etc/passwd, /etc/group, and /etc/os-release
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /etc/passwd:/host/etc/passwd:ro,z
-      - /etc/group:/host/etc/group:ro,z
-      - /etc/os-release:/host/etc/os-release:ro,z
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/os-release:/host/etc/os-release:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       - netdataconfig:/etc/netdata
       - netdatalib:/var/lib/netdata
