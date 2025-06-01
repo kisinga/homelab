@@ -125,7 +125,6 @@ Always access internal services over port **443** in Tailnet.
 ## 🧰 QoL Helpers
 
 - `scripts/mkservice.sh` → scaffolds service + matching `/srv/homelab-data/<svc>`
-- `scripts/labels-fix.sh` → relabels both trees
 
 ---
 
