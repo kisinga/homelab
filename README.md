@@ -1,4 +1,4 @@
-# ThinkCentre M900 Homelab — **Baseline Stack & Architecture**
+# Baseline Stack & Architecture
 
 \*Companion to **Git Autopull & Bootstrap\***
 
