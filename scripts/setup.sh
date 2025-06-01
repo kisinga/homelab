@@ -20,6 +20,7 @@ sudo chown -R groot:docker "$DEST_DIR" "$DATA_DIR"
 sudo chmod -R g+w          "$DEST_DIR" "$DATA_DIR"
 sudo chcon -Rt svirt_sandbox_file_t "$DEST_DIR" "$DATA_DIR"
 sudo chcon -t  svirt_sandbox_file_t /var/run/docker.sock
+chmod +x /srv/homelab/scripts/*.sh
 
 echo "→ Installing systemd units..."
 sudo cp "$DEST_DIR/systemd/"*.service "$DEST_DIR/systemd/"*.timer /etc/systemd/system/
