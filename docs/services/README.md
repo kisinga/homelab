@@ -5,3 +5,4 @@ This directory contains documentation for the various services running in the ho
 - [Git Autopull](./git-autopull.md)
 - [Netdata](./netdata.md)
 - [Watchtower](./watchtower.md)
+- [Health Monitoring](./health.md)

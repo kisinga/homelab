@@ -37,69 +37,54 @@ To use Netdata Cloud for centralized dashboards and alerts, add your claim token
 - Verify the container is running: `docker ps | grep netdata`.
 - Check firewall rules if the UI is not accessible.
 
-## Adding Custom Configuration
+## Adding Collectors
 
-Adding custom configuration to Netdata requires two steps: ensuring the necessary collector is installed in the container, and providing the configuration file.
+Adding new collectors to Netdata is a straightforward process of providing a configuration file and ensuring any required packages are installed.
 
-This example demonstrates how to add the `fping` collector to monitor latency for specific hosts.
+This example demonstrates how to add the `ping` collector to monitor latency for specific hosts. For more advanced health checking (e.g., for web services), see the [Health Monitoring](./health.md) guide.
 
-### Step 1: Install the Collector Package
+### Step 1: Provide a Configuration File
 
-The official Netdata container is modular and does not include all collector binaries by default. You can instruct it to install packages at startup using an environment variable.
+First, create a configuration file for the collector you want to add. In this case, we'll configure the `ping` collector.
 
-In `stacks/core.yml`, add the `NETDATA_EXTRA_DEB_PACKAGES` environment variable to the `netdata` service, specifying any packages you need.
+Create a file named `ping.conf` in `stacks/netdata/config/`.
 
 ```yaml
-# ...
-netdata:
-  image: netdata/netdata:latest
-  # ... other settings
-  volumes:
-    # ... other volumes
-    # Custom fping configuration, mounted to a temporary location
-    - ./netdata/config/fping.conf:/tmp/fping.conf:ro
-    # Netdata persistent data volumes with SELinux labels
-    - netdataconfig:/etc/netdata:Z
-    - netdatalib:/var/lib/netdata:Z
-    - netdatacache:/var/cache/netdata:Z
-  # Override the entrypoint to copy config and then run original script
-  entrypoint:
-    - /bin/sh
-    - -c
-    - "cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
-  # ... rest of the service definition
-  environment:
-    # Add fping package at runtime using the official method
-    - NETDATA_EXTRA_DEB_PACKAGES=fping
-    # ... other environment variables
+# stacks/netdata/config/ping.conf
+jobs:
+  - name: google_dns
+    host: 8.8.8.8
+  - name: cloudflare_dns
+    host: 1.1.1.1
 ```
 
-### Step 2: Provide the Configuration File
+### Step 2: Mount the Configuration and Install Packages
 
-1.  Create your custom configuration file inside the repository. For this example, we use `stacks/netdata/config/fping.conf`.
+Next, update the `netdata` service definition in `stacks/core.yml` to mount the new configuration file and install any necessary packages.
 
-    ```
-    # stacks/netdata/config/fping.conf
-    hosts: 8.8.8.8 1.1.1.1
-    ```
+The `ping` collector requires the `iputils-ping` package. We can instruct Netdata to install this at startup using the `NETDATA_EXTRA_DEB_PACKAGES` environment variable.
 
-2.  Mount this file directly into the appropriate subdirectory in Netdata's configuration volume. For the `fping` collector, the correct path is `/etc/netdata/fping.d/fping.conf`. Mounting to a subdirectory avoids the permission conflicts that can happen in the root `/etc/netdata` directory.
-
-The updated `volumes` section in `stacks/core.yml` will look like this:
+The updated service definition will look like this:
 
 ```yaml
-# ...
-volumes:
-  # ... other volumes
-  # Custom fping configuration, mounted directly to the collector's config directory
-  - ./netdata/config/fping.conf:/etc/netdata/fping.d/fping.conf:ro
-  # Netdata persistent data volumes with SELinux labels
-  - netdataconfig:/etc/netdata:Z
-  - netdatalib:/var/lib/netdata:Z
-  - netdatacache:/var/cache/netdata:Z
-# ... rest of the service definition
+# stacks/core.yml
+services:
+  netdata:
+    # ...
+    volumes:
+      # ... other volumes
+      # Mount the custom ping configuration
+      - ./netdata/config/ping.conf:/etc/netdata/go.d/ping.conf:ro
+      - netdataconfig:/etc/netdata:Z
+      - netdatalib:/var/lib/netdata:Z
+      - netdatacache:/var/cache/netdata:Z
+    environment:
+      # Install the iputils-ping package for the ping collector
+      - NETDATA_EXTRA_DEB_PACKAGES=iputils-ping
+      # ... other environment variables
+    # ...
 ```
 
 ### Step 3: Restart the Stack
 
-After saving the changes, restart the Docker stack. Netdata will install the `fping` package and then load your `fping.conf`, activating the new charts in the UI.
+After saving the changes, restart the Docker stack. Netdata will install the `iputils-ping` package and then load your `ping.conf`, activating the new latency monitoring charts in the UI.

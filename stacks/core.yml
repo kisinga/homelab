@@ -78,8 +78,8 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/os-release:/host/etc/os-release:ro
-      # Custom fping configuration, mounted directly to the collector's config directory
-      - ./netdata/config/fping.conf:/etc/netdata/fping.d/fping.conf:ro
+      # Custom ping configuration, mounted directly to the collector's config directory
+      - ./netdata/config/ping.conf:/etc/netdata/go.d/ping.conf:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       # :Z is added to relabel the volume for SELinux, allowing the container to write to it.
       - netdataconfig:/etc/netdata:Z
@@ -91,8 +91,8 @@ services:
     security_opt:
       - apparmor:unconfined # Recommended by Netdata if AppArmor is active
     environment:
-      # Add fping package at runtime using the official method
-      - NETDATA_EXTRA_DEB_PACKAGES=fping
+      # Add iputils-ping package at runtime using the official method
+      - NETDATA_EXTRA_DEB_PACKAGES=iputils-ping
       # Tell Netdata to use the socket-proxy for Docker container metrics
       - DOCKER_HOST=tcp://socket-proxy:2375
       # Optional: Set a hostname for Netdata dashboard if desired
@@ -100,7 +100,10 @@ services:
     # Healthcheck for the Netdata container
     healthcheck:
       test:
-        ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/info || exit 1"]
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://localhost:19999/api/v1/info || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
