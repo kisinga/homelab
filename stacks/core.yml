@@ -103,7 +103,8 @@ services:
       # - NETDATA_HOSTNAME=homelab-core
     # Healthcheck for the Netdata container
     healthcheck:
-      ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/info || exit 1"]
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/info || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
