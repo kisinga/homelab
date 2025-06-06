@@ -39,29 +39,15 @@ To use Netdata Cloud for centralized dashboards and alerts, add your claim token
 
 ## Adding Custom Configuration
 
-Adding custom configuration to Netdata requires a careful approach to avoid permission issues with its Docker volume. The following method ensures that custom config files are correctly loaded without interfering with the container's startup process.
+Adding custom configuration to Netdata requires two steps: ensuring the necessary collector is installed in the container, and providing the configuration file.
 
-This example demonstrates how to add a custom `fping.conf` to monitor latency for specific hosts.
+This example demonstrates how to add the `fping` collector to monitor latency for specific hosts.
 
-### Step 1: Create the Local Configuration File
+### Step 1: Install the Collector Package
 
-1.  Create your custom configuration file inside the repository. For Netdata configurations, a good practice is to keep them organized. For this example, we use `stacks/netdata/config/fping.conf`.
-2.  Add your desired configuration. For `fping.conf`, you can list hosts to ping:
+The official Netdata container is modular and does not include all collector binaries by default. You can instruct it to install packages at startup using an environment variable.
 
-    ```
-    # stacks/netdata/config/fping.conf
-    hosts: 8.8.8.8 1.1.1.1
-    ```
-
-### Step 2: Update Docker Compose Service
-
-To load this file, you must modify the `netdata` service in `stacks/core.yml`.
-
-1.  **Mount the File to a Temporary Location**: Mount your local config file to a temporary path inside the container, like `/tmp/fping.conf`. This avoids direct permission conflicts with the `/etc/netdata` volume.
-
-2.  **Override the Entrypoint**: The Netdata image's default entrypoint needs to be overridden to copy the file into place before the service starts. This ensures the file has the correct ownership (`netdata:netdata`) inside the container.
-
-The updated service definition in `stacks/core.yml` will look like this:
+In `stacks/core.yml`, add the `NETDATA_EXTRA_DEB_PACKAGES` environment variable to the `netdata` service, specifying any packages you need.
 
 ```yaml
 # ...
@@ -82,8 +68,38 @@ netdata:
     - -c
     - "cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
   # ... rest of the service definition
+  environment:
+    # Add fping package at runtime using the official method
+    - NETDATA_EXTRA_DEB_PACKAGES=fping
+    # ... other environment variables
+```
+
+### Step 2: Provide the Configuration File
+
+1.  Create your custom configuration file inside the repository. For this example, we use `stacks/netdata/config/fping.conf`.
+
+    ```
+    # stacks/netdata/config/fping.conf
+    hosts: 8.8.8.8 1.1.1.1
+    ```
+
+2.  Mount this file directly into the appropriate subdirectory in Netdata's configuration volume. For the `fping` collector, the correct path is `/etc/netdata/fping.d/fping.conf`. Mounting to a subdirectory avoids the permission conflicts that can happen in the root `/etc/netdata` directory.
+
+The updated `volumes` section in `stacks/core.yml` will look like this:
+
+```yaml
+# ...
+volumes:
+  # ... other volumes
+  # Custom fping configuration, mounted directly to the collector's config directory
+  - ./netdata/config/fping.conf:/etc/netdata/fping.d/fping.conf:ro
+  # Netdata persistent data volumes with SELinux labels
+  - netdataconfig:/etc/netdata:Z
+  - netdatalib:/var/lib/netdata:Z
+  - netdatacache:/var/cache/netdata:Z
+# ... rest of the service definition
 ```
 
 ### Step 3: Restart the Stack
 
-After saving the changes, restart the Docker stack. Netdata will start with your custom monitoring active.
+After saving the changes, restart the Docker stack. Netdata will install the `fping` package and then load your `fping.conf`, activating the new charts in the UI.

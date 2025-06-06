@@ -63,8 +63,8 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/os-release:/host/etc/os-release:ro
-      # Custom fping configuration, mounted to a temporary location to be copied on startup
-      - ./netdata/config/fping.conf:/tmp/fping.conf:ro
+      # Custom fping configuration, mounted directly to the collector's config directory
+      - ./netdata/config/fping.conf:/etc/netdata/fping.d/fping.conf:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       # :Z is added to relabel the volume for SELinux, allowing the container to write to it.
       - netdataconfig:/etc/netdata:Z
@@ -76,15 +76,12 @@ services:
     security_opt:
       - apparmor:unconfined # Recommended by Netdata if AppArmor is active
     environment:
+      # Add fping package at runtime using the official method
+      - NETDATA_EXTRA_DEB_PACKAGES=fping
       # Tell Netdata to use the socket-proxy for Docker container metrics
       - DOCKER_HOST=tcp://socket-proxy:2375
       # Optional: Set a hostname for Netdata dashboard if desired
       # - NETDATA_HOSTNAME=homelab-core
-    # Override the entrypoint to copy our config and then run the original startup script.
-    entrypoint:
-      - /bin/sh
-      - -c
-      - "apk add --no-cache fping && cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
     # Healthcheck for the Netdata container
     healthcheck:
       test:
