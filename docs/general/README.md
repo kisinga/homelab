@@ -1,8 +1,55 @@
-# Baseline Stack & Architecture
+# Homelab Infrastructure
 
-\*Companion to **Git Autopull & Bootstrap\***
+This repository contains the infrastructure-as-code for a personal homelab, designed for simplicity, security, and automated maintenance.
 
-> ✅ This setup is designed to run on **any modern Linux system** with Docker and systemd — but is tested and tailored on a **Lenovo ThinkCentre M900 (Fedora 42)** for real-world reliability.
+## Overview
+
+The philosophy of this homelab is to be:
+
+- **Declarative**: The entire state of the system is defined in this Git repository.
+- **Automated**: Changes pushed to the `main` branch are automatically deployed.
+- **Secure by Default**: Services are not exposed to the internet unless explicitly configured. Access is primarily handled via a Tailscale mesh network.
+
+## Core Concepts
+
+The architecture is built on a few key concepts. For more detailed information, please refer to the specific documentation pages.
+
+- **[Git-based Autopull](./../services/git-autopull.md)**: The homelab automatically stays in sync with this repository using a systemd-based Git pull and redeploy mechanism. This is the backbone of the automated workflow.
+
+- **Container Management**: All services run as Docker containers, defined in Docker Compose files within the `stacks/` directory.
+
+  - **[Watchtower](./../services/watchtower.md)** handles automatic updates for container images.
+  - **[Netdata](./../services/netdata.md)** provides real-time performance monitoring.
+
+- **Networking**:
+
+  - Services are accessed internally via the Tailscale network.
+  - Public access can be configured using Cloudflare Tunnels (though this is not the default).
+
+- **[Troubleshooting](./../troubleshooting)**: Common issues, especially those related to SELinux, are documented in the troubleshooting section.
+
+## Reasoning
+
+- **Infrastructure as Code**: Using Git as the single source of truth makes the system easy to version, replicate, and recover.
+- **Simplicity**: The stack relies on well-known, standard tools like Docker, Docker Compose, systemd, and Git, making it easy to understand and maintain.
+- **Security**: The "internal-only by default" approach, combined with the use of `socket-proxy` to limit Docker API exposure, minimizes the attack surface.
+
+## Getting Started
+
+To bootstrap a new homelab host with this configuration, run the following command:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/kisinga/homelab/main/scripts/setup.sh)"
+```
+
+This will clone the repository, set up the required directories, and start the automated deployment services.
+
+**Before running the script**, you will need to create a `.env` file in the root of the repository with your specific environment variables. An example is provided in `.env.example`.
+
+## Directory Structure
+
+- `/srv/homelab`: The Git repository is cloned here.
+- `/srv/homelab-data`: Persistent data for services is stored here, outside of the Git repository, to keep data separate from code.
 
 ---
 
@@ -36,16 +83,6 @@ Run **any** OCI workload, keep it up-to-date, and expose only with intent:
 | **Host**    | Lenovo ThinkCentre M900 — i5‑6500 · 32 GB RAM · 1 TB SSD   |
 | **OS**      | Fedora 42 (**SELinux enforcing**)                          |
 | **Network** | 1 Gb fibre → router → **Tailscale** mesh (zero open ports) |
-
----
-
-## Easy Start
-
-Run this on your homelab host:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/kisinga/homelab/main/scripts/setup.sh)"
-```
 
 ---
 
@@ -122,7 +159,7 @@ Always access internal services over port **443** in Tailnet for services expose
 | Symptom                        | Diagnostic                              | Resolution                           |
 | ------------------------------ | --------------------------------------- | ------------------------------------ |
 | Container cannot write         | `docker logs <id>`                      | Relabel `/srv/homelab-data/<svc>`    |
-| Watchtower “permission denied” | `docker logs watchtower`                | Check `socket-proxy` logs & config   |
+| Watchtower "permission denied" | `docker logs watchtower`                | Check `socket-proxy` logs & config   |
 | Netdata permission issues      | `docker logs netdata`                   | Check `socket-proxy` & volume mounts |
 | HTTPS fails                    | `curl 127.0.0.1:8080` OK?               | Use `tailscale serve` port 443       |
 | Git pull broke stack           | `journalctl -u homelab-gitpull.service` | Roll back commit; volumes safe       |
