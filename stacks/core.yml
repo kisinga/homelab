@@ -84,7 +84,7 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - "cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
+      - "apk add --no-cache fping && cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
     # Healthcheck for the Netdata container
     healthcheck:
       test:
