@@ -81,6 +81,8 @@ services:
       - /etc/os-release:/host/etc/os-release:ro
       # Custom ping configuration, mounted directly to the collector's config directory
       - ./netdata/config/ping.conf:/etc/netdata/go.d/ping.conf:ro
+      # Disable default email notifications by overriding the notification config
+      - ./netdata/config/health_alarm_notify.conf:/etc/netdata/health_alarm_notify.conf:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       # :Z is added to relabel the volume for SELinux, allowing the container to write to it.
       - netdataconfig:/etc/netdata:Z
@@ -88,7 +90,8 @@ services:
       - netdatacache:/var/cache/netdata:Z
     cap_add:
       - SYS_PTRACE # Required for process monitoring
-      - NET_ADMIN # Potentially for some network metrics, eBPF; can be omitted if not strictly needed
+      - NET_ADMIN # Potentially for some network metrics, eBPF
+      - NET_RAW # Required for the ping collector to send ICMP packets
     security_opt:
       - apparmor:unconfined # Recommended by Netdata if AppArmor is active
     environment:
