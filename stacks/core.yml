@@ -63,8 +63,8 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/os-release:/host/etc/os-release:ro
-      # Custom fping configuration
-      - ./netdata/config/fping.conf:/etc/netdata/fping.conf:ro
+      # Custom fping configuration, mounted to a temporary location to be copied on startup
+      - ./netdata/config/fping.conf:/tmp/fping.conf:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       - netdataconfig:/etc/netdata
       - netdatalib:/var/lib/netdata
@@ -79,6 +79,8 @@ services:
       - DOCKER_HOST=tcp://socket-proxy:2375
       # Optional: Set a hostname for Netdata dashboard if desired
       # - NETDATA_HOSTNAME=homelab-core
+    # Command to copy in custom configs and then run Netdata's start script
+    command: sh -c "cp /tmp/fping.conf /etc/netdata/fping.conf && /usr/sbin/run.sh"
     # Healthcheck for the Netdata container
     healthcheck:
       test:
