@@ -70,3 +70,42 @@ The recommended solution is to create a custom SELinux policy module that specif
     Restart the proxy container and any services that depend on it. They should now function correctly.
 
 **Note**: The `:z` or `:Z` flags on volume mounts in a `docker-compose.yml` file are important for setting the correct file labels, but they do not grant the process permissions to perform actions that are denied by an active policy. A custom policy is often still required.
+
+## SELinux and Persistent Docker Volumes
+
+Another common issue on SELinux-hardened systems like Fedora involves permissions for Docker's named volumes, which are used for persistent data.
+
+### The Problem
+
+A container fails to start, and its logs show permission errors when trying to write to a directory that is backed by a named volume.
+
+**Symptoms:**
+
+- `Permission denied` errors during container startup.
+- Errors like `cp: preserving times for '/path/to/dir': Permission denied`.
+
+This occurs because the directory created by Docker on the host for the named volume does not have the correct SELinux label. The container's process is therefore denied write access by the SELinux policy.
+
+### The Solution: Use the `:Z` Relabeling Flag
+
+The solution is to instruct Docker to apply the correct SELinux label to the volume when it is mounted. This is done by appending `:Z` to the volume definition in your `docker-compose.yml`.
+
+- **`:z` (lowercase)**: Use for a **shared volume**, accessible by multiple containers.
+- **`:Z` (uppercase)**: Use for a **private, unshared volume**.
+
+**Example:**
+
+If a Netdata container cannot write to its configuration volume, modify the service definition as follows:
+
+```yaml
+services:
+  netdata:
+    # ...
+    volumes:
+      # Relabel the named volume to be private to this container
+      - netdataconfig:/etc/netdata:Z
+      - netdatalib:/var/lib/netdata:Z
+      - netdatacache:/var/cache/netdata:Z
+```
+
+This ensures the container has the necessary permissions to read and write to its own persistent data directories, resolving the startup errors.
