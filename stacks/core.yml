@@ -80,8 +80,11 @@ services:
       - DOCKER_HOST=tcp://socket-proxy:2375
       # Optional: Set a hostname for Netdata dashboard if desired
       # - NETDATA_HOSTNAME=homelab-core
-    # Command to copy in custom configs and then run Netdata's start script
-    command: sh -c "cp /tmp/fping.conf /etc/netdata/fping.conf && /usr/sbin/run.sh"
+    # Override the entrypoint to copy our config and then run the original startup script.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "cp /tmp/fping.conf /etc/netdata/fping.conf && chown netdata:netdata /etc/netdata/fping.conf && /usr/sbin/run.sh"
     # Healthcheck for the Netdata container
     healthcheck:
       test:
