@@ -55,6 +55,12 @@ services:
       - DOCKER_HOST=tcp://socket-proxy:2375 # Use the service name 'socket-proxy' and its internal port
     labels:
       - com.centurylinklabs.watchtower.enable=true
+    healthcheck:
+      test: ["CMD", "/watchtower", "--health-check"]
+      interval: 1m
+      timeout: 30s
+      retries: 3
+      start_period: 1m
 
   netdata:
     image: netdata/netdata:latest
