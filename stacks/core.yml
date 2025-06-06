@@ -65,6 +65,7 @@ services:
   netdata:
     image: netdata/netdata:latest
     container_name: netdata
+    pid: "host" # Use the host's PID namespace for full process visibility
     restart: unless-stopped
     depends_on:
       - socket-proxy # Ensure socket-proxy is available for Docker metrics
