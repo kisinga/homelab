@@ -85,11 +85,10 @@ services:
     # Healthcheck for the Netdata container
     healthcheck:
       test:
-        ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/health || exit 1"]
+        ["CMD-SHELL", "curl -f http://localhost:19999/api/v1/info || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
 
 # Define persistent volumes for Netdata
 volumes:
