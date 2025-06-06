@@ -63,6 +63,8 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/os-release:/host/etc/os-release:ro
+      # Custom fping configuration
+      - ./netdata/config/fping.conf:/etc/netdata/fping.conf:ro
       # Netdata persistent configuration and data (using Docker named volumes)
       - netdataconfig:/etc/netdata
       - netdatalib:/var/lib/netdata
