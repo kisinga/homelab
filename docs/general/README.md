@@ -18,6 +18,7 @@ The architecture is built on a few key concepts. For more detailed information, 
 
 - **Container Management**: All services run as Docker containers, defined in Docker Compose files within the `stacks/` directory.
 
+  - **[Health Checks](./healthchecks.md)**: All long-running services should have a health check to ensure reliability and proper monitoring.
   - **[Watchtower](./../services/watchtower.md)** handles automatic updates for container images.
   - **[Netdata](./../services/netdata.md)** provides real-time performance monitoring.
 
@@ -80,16 +81,16 @@ Run **any** OCI workload, keep it up-to-date, and expose only with intent:
 
 | Component   | Detail                                                     |
 | ----------- | ---------------------------------------------------------- |
-| **Host**    | Lenovo ThinkCentre M900 — i5‑6500 · 32 GB RAM · 1 TB SSD   |
-| **OS**      | Fedora 42 (**SELinux enforcing**)                          |
-| **Network** | 1 Gb fibre → router → **Tailscale** mesh (zero open ports) |
+| **Host**    | Lenovo ThinkCentre M900 — i5‑6500 · 32 GB RAM · 1 TB SSD   |
+| **OS**      | Fedora 42 (**SELinux enforcing**)                          |
+| **Network** | 1 Gb fibre → router → **Tailscale** mesh (zero open ports) |
 
 ---
 
 ## 🗂 Directory Layout
 
 ```bash
-#  Code & compose files
+#  Code & compose files
 /srv/homelab
 ├─ stacks/
 │  ├─ core.yml
@@ -98,13 +99,13 @@ Run **any** OCI workload, keep it up-to-date, and expose only with intent:
 ├─ systemd/
 └─ .env
 
-# Persistent volumes (outside Git)
+# Persistent volumes (outside Git)
 /srv/homelab-data
 └─ dukahub/ # Example service data
 ```
 
 _Ownership_: `groot:docker`, `0775` on both roots.
-_SELinux_: `chcon -Rt svirt_sandbox_file_t /srv/homelab /srv/homelab-data`
+_SELinux_: `chcon -Rt svirt_sandbox_file_t /srv/homelab /srv/homelab-data`
 
 ---
 
@@ -158,10 +159,10 @@ Always access internal services over port **443** in Tailnet for services expose
 
 | Symptom                        | Diagnostic                              | Resolution                           |
 | ------------------------------ | --------------------------------------- | ------------------------------------ |
-| Container cannot write         | `docker logs <id>`                      | Relabel `/srv/homelab-data/<svc>`    |
+| Container cannot write         | `docker logs <id>`                      | Relabel `/srv/homelab-data/<svc>`    |
 | Watchtower "permission denied" | `docker logs watchtower`                | Check `socket-proxy` logs & config   |
 | Netdata permission issues      | `docker logs netdata`                   | Check `socket-proxy` & volume mounts |
-| HTTPS fails                    | `curl 127.0.0.1:8080` OK?               | Use `tailscale serve` port 443       |
+| HTTPS fails                    | `curl 127.0.0.1:8080` OK?               | Use `tailscale serve` port 443       |
 | Git pull broke stack           | `journalctl -u homelab-gitpull.service` | Roll back commit; volumes safe       |
 
 ---
